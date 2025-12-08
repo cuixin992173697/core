@@ -17,6 +17,7 @@ nr build core --formats cjs
 */
 
 import fs from 'node:fs'
+// cuixin: 通过这个方法解析命令行参数
 import { parseArgs } from 'node:util'
 import path from 'node:path'
 import { brotliCompressSync, gzipSync } from 'node:zlib'
@@ -189,6 +190,7 @@ async function build(target) {
         `TARGET:${target}`,
         formats ? `FORMATS:${formats}` : ``,
         prodOnly ? `PROD_ONLY:true` : ``,
+        //  1.cuixin: 配置sourceMap参数,通过rollup进行构建
         sourceMap ? `SOURCE_MAP:true` : ``,
       ]
         .filter(Boolean)

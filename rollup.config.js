@@ -147,6 +147,7 @@ function createConfig(format, output, plugins = []) {
   if (isCJSBuild) {
     output.esModule = true
   }
+  // 2.cuixin：输出的sourceMap，取决于当前的sourceMap, build.js中通过--environment传入的SOURCE_MAP参数
   output.sourcemap = !!process.env.SOURCE_MAP
   output.externalLiveBindings = false
   // https://github.com/rollup/rollup/pull/5380
