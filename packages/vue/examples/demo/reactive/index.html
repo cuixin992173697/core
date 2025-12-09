@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vue Effect Test</title>
+
+    <!-- 引入你本地 clone 的 vue.global.js -->
+    <script src="../../../../vue/dist/vue.global.js"></script>
+</head>
+
+<body>
+
+    <h2>Vue3 Effect 响应式测试</h2>
+    <p id="text"></p>
+
+    <button id="btn">count++</button>
+
+    <script>
+        const { reactive, ref, effect } = Vue;
+
+        // 创建响应式数据
+        const state = reactive({
+            count: 0
+        });
+
+        // 绑定 effect：依赖收集 + 自动更新
+        effect(() => {
+            document.getElementById('text').innerText =
+                `当前 count 值：${state.count}`;
+        });
+
+        // 事件：修改数据触发 effect 自动执行
+        document.getElementById('btn').onclick = () => {
+            state.count++;
+        };
+    </script>
+
+</body>
+</html>

@@ -40,6 +40,10 @@ enum TargetType {
   COLLECTION = 2,
 }
 
+/**
+ * cuixin 3.1.1 对象类型的映射
+ *
+ */
 function targetTypeMap(rawType: string) {
   switch (rawType) {
     case 'Object':
@@ -55,6 +59,12 @@ function targetTypeMap(rawType: string) {
   }
 }
 
+/**
+ * cuixin: 3.1
+ * 判断target 是否是一个合法的可代理值，value[ReactiveFlags.SKIP]判断对象是否被标记为 跳过响应式处理,
+ * !Object.isExtensible(value)判断对象是否可扩展（是否被冻结）。
+ * toRawType本质使用的是Object.toString.call(value)来获取值的类型字符串。
+ */
 function getTargetType(value: Target) {
   return value[ReactiveFlags.SKIP] || !Object.isExtensible(value)
     ? TargetType.INVALID
@@ -261,6 +271,7 @@ function createReactiveObject(
   collectionHandlers: ProxyHandler<any>,
   proxyMap: WeakMap<Target, any>,
 ) {
+  // cuixin: 1.判断是否是对象，只有对象才可以被Proxy代理
   if (!isObject(target)) {
     if (__DEV__) {
       warn(
@@ -271,8 +282,10 @@ function createReactiveObject(
     }
     return target
   }
+
   // target is already a Proxy, return it.
   // exception: calling readonly() on a reactive object
+  //  cuixin: 2.判断是否应该“再次代理”一个已经代理过的对象
   if (
     target[ReactiveFlags.RAW] &&
     !(isReadonly && target[ReactiveFlags.IS_REACTIVE])
@@ -280,15 +293,24 @@ function createReactiveObject(
     return target
   }
   // only specific value types can be observed.
+  // cuixin 3.判断target 是否是一个合法的可代理值，
+  // enum TargetType {
+  //   INVALID = 0,
+  //   COMMON = 1,
+  //   COLLECTION = 2,
+  // }
   const targetType = getTargetType(target)
   if (targetType === TargetType.INVALID) {
     return target
   }
   // target already has corresponding Proxy
+  // cuixin 4.如果这个对象已经被 reactive() 过，则直接返回之前缓存的 Proxy，不再创建新的 Proxy。
   const existingProxy = proxyMap.get(target)
   if (existingProxy) {
     return existingProxy
   }
+
+  // cuixin: 5.创建Proxy对象，如果是普通对象 Object, Array → 使用 baseHandlers，如果是Map, Set, WeakMap, WeakSet这种集合类型 → 使用 collectionHandlers
   const proxy = new Proxy(
     target,
     targetType === TargetType.COLLECTION ? collectionHandlers : baseHandlers,
