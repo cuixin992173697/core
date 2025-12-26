@@ -98,6 +98,7 @@ export type Reactive<T> = UnwrapNestedRefs<T> &
  * @param target - The source object.
  * @see {@link https://vuejs.org/api/reactivity-core.html#reactive}
  */
+// cuixin: 到出reactive 函数
 export function reactive<T extends object>(target: T): Reactive<T>
 export function reactive(target: object) {
   // if trying to observe a readonly proxy, return the readonly version.
@@ -264,6 +265,7 @@ export function shallowReadonly<T extends object>(target: T): Readonly<T> {
   )
 }
 
+// cuixin: 创建响应式对象的核心函数
 function createReactiveObject(
   target: Target,
   isReadonly: boolean,

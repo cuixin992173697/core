@@ -254,6 +254,7 @@ export function createAppAPI<HostElement>(
   render: RootRenderFunction<HostElement>,
   hydrate?: RootHydrateFunction,
 ): CreateAppFunction<HostElement> {
+  // cuixin: createAppAPI 函数返回一个 createApp 函数, 真正执行的是这个函数
   return function createApp(rootComponent, rootProps = null) {
     if (!isFunction(rootComponent)) {
       rootComponent = extend({}, rootComponent)
@@ -355,6 +356,7 @@ export function createAppAPI<HostElement>(
         return app
       },
 
+      //cuixin: createApp(App).mount('#app')执行的是此处的mount方法
       mount(
         rootContainer: HostElement,
         isHydrate?: boolean,
@@ -369,6 +371,7 @@ export function createAppAPI<HostElement>(
                 ` you need to unmount the previous app by calling \`app.unmount()\` first.`,
             )
           }
+          // cuixin: 创建根组件的 vnode 节点
           const vnode = app._ceVNode || createVNode(rootComponent, rootProps)
           // store app context on the root VNode.
           // this will be set on the root instance on initial mount.
@@ -395,6 +398,7 @@ export function createAppAPI<HostElement>(
           if (isHydrate && hydrate) {
             hydrate(vnode as VNode<Node, Element>, rootContainer as any)
           } else {
+            // cuixin: 把根组件的虚拟节点（vnode）渲染到真实 DOM 容器中
             render(vnode, rootContainer, namespace)
           }
           isMounted = true

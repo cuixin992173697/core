@@ -808,9 +808,11 @@ export function setupComponent(
 
   const { props, children } = instance.vnode
   const isStateful = isStatefulComponent(instance)
+  // cuixin: 初始化 props 和 slots
   initProps(instance, props, isStateful, isSSR)
   initSlots(instance, children, optimized || isSSR)
 
+  // cuixin: 有状态组件，执行 setup 函数
   const setupResult = isStateful
     ? setupStatefulComponent(instance, isSSR)
     : undefined

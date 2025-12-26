@@ -452,10 +452,12 @@ const normalizeRef = ({
   ) as any
 }
 
+// cuixin : 创建vnode节点的核心函数
 function createBaseVNode(
   type: VNodeTypes | ClassComponent | typeof NULL_DYNAMIC_COMPONENT,
   props: (Data & VNodeProps) | null = null,
   children: unknown = null,
+  // cuixin: patchFlag 是一个用于优化虚拟节点更新的标志位，表示该节点在更新时需要进行哪些特定的操作
   patchFlag = 0,
   dynamicProps: string[] | null = null,
   shapeFlag: number = type === Fragment ? 0 : ShapeFlags.ELEMENT,
@@ -544,6 +546,7 @@ export const createVNode = (
   __DEV__ ? createVNodeWithArgsTransform : _createVNode
 ) as typeof _createVNode
 
+// type 传入的App组件就是STATEFUL_COMPONENT，传入函数，就是FUNCTIONAL_COMPONENT，传入字符串，就是ELEMENT
 function _createVNode(
   type: VNodeTypes | ClassComponent | typeof NULL_DYNAMIC_COMPONENT,
   props: (Data & VNodeProps) | null = null,

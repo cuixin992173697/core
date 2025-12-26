@@ -41,6 +41,7 @@ const doc = (typeof document !== 'undefined' ? document : null) as Document
 
 const templateContainer = doc && /*@__PURE__*/ doc.createElement('template')
 
+// cuixin:  renderOptions 包含以下函数：
 export const nodeOps: Omit<RendererOptions<Node, Element>, 'patchProp'> = {
   insert: (child, parent, anchor) => {
     parent.insertBefore(child, anchor || null)

@@ -371,48 +371,62 @@ function baseCreateRenderer(
 
   // Note: functions inside this closure should use `const xxx = () => {}`
   // style in order to prevent being inlined by minifiers.
+  // cuixin: patch函数
   const patch: PatchFn = (
-    n1,
-    n2,
-    container,
-    anchor = null,
-    parentComponent = null,
-    parentSuspense = null,
-    namespace = undefined,
-    slotScopeIds = null,
-    optimized = __DEV__ && isHmrUpdating ? false : !!n2.dynamicChildren,
+    n1, // 旧节点
+    n2, // 新节点
+    container, // 挂载的容器
+    anchor = null, // 插入位置、锚点
+    parentComponent = null, // 父组件实例
+    parentSuspense = null, // 父suspense实例
+    namespace = undefined, // 命名空间
+    slotScopeIds = null, // 插槽作用域id
+    optimized = __DEV__ && isHmrUpdating ? false : !!n2.dynamicChildren, // 是否优化
   ) => {
     if (n1 === n2) {
       return
     }
 
     // patching & not same type, unmount old tree
+    // cuixin  对于类型不同的节点直接卸载
     if (n1 && !isSameVNodeType(n1, n2)) {
       anchor = getNextHostNode(n1)
       unmount(n1, parentComponent, parentSuspense, true)
       n1 = null
     }
 
+    // cuixin: 放弃优化
     if (n2.patchFlag === PatchFlags.BAIL) {
       optimized = false
       n2.dynamicChildren = null
     }
 
+    // cuixin： 根据不同类型的节点进行处理
     const { type, ref, shapeFlag } = n2
     switch (type) {
+      // 文本节点
       case Text:
         processText(n1, n2, container, anchor)
         break
+      // 注释节点
       case Comment:
         processCommentNode(n1, n2, container, anchor)
         break
+      // 静态节点（永远不会变动的DOM内容），hoistStatic、静态内容只创建、性能优化点
       case Static:
         if (n1 == null) {
+          // 首次渲染，新建
           mountStaticNode(n2, container, anchor, namespace)
         } else if (__DEV__) {
+          // 只有开发环境下才会打补丁，用于HMR，生产环境不做任何diff
           patchStaticNode(n1, n2, container, namespace)
         }
         break
+      // 多根节点
+      // <>
+      //   <div />
+      //   <span />
+      // </>
       case Fragment:
         processFragment(
           n1,
@@ -483,6 +497,7 @@ function baseCreateRenderer(
     }
 
     // set ref
+    // cuixin: 处理ref,新 vnode 有 ref → 设置, 新 vnode 没有 ref 但旧 vnode 有 ref → 卸载
     if (ref != null && parentComponent) {
       setRef(ref, n1 && n1.ref, parentSuspense, n2 || n1, !n2)
     } else if (ref == null && n1 && n1.ref != null) {
@@ -648,7 +663,7 @@ function baseCreateRenderer(
   const mountElement = (
     vnode: VNode,
     container: RendererElement,
-    anchor: RendererNode | null,
+    anchor: RendererNode | null, // 插入位置的锚点
     parentComponent: ComponentInternalInstance | null,
     parentSuspense: SuspenseBoundary | null,
     namespace: ElementNamespace,
@@ -659,6 +674,7 @@ function baseCreateRenderer(
     let vnodeHook: VNodeHook | undefined | null
     const { props, shapeFlag, transition, dirs } = vnode
 
+    // cuixin: 根据Vnode创建真实的 DOM 元素
     el = vnode.el = hostCreateElement(
       vnode.type as string,
       namespace,
@@ -668,9 +684,11 @@ function baseCreateRenderer(
 
     // mount children first, since some props may rely on child content
     // being already rendered, e.g. `<select value>`
+    // cuixin: 文本节点处理
     if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       hostSetElementText(el, vnode.children as string)
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+      // cuxin: 处理子节点，递归展示
       mountChildren(
         vnode.children as VNodeArrayChildren,
         el,
@@ -688,6 +706,7 @@ function baseCreateRenderer(
     }
     // scopeId
     setScopeId(el, vnode, vnode.scopeId, slotScopeIds, parentComponent)
+    // cuixin: 处理 props 属性
     // props
     if (props) {
       for (const key in props) {
@@ -726,6 +745,7 @@ function baseCreateRenderer(
     if (needCallTransitionHooks) {
       transition!.beforeEnter(el)
     }
+    // cuixin: 把创建好的 el 元素挂载到容器中
     hostInsert(el, container, anchor)
     if (
       (vnodeHook = props && props.onVnodeMounted) ||
@@ -1163,6 +1183,7 @@ function baseCreateRenderer(
           optimized,
         )
       } else {
+        // cuixin: 挂载组件
         mountComponent(
           n2,
           container,
@@ -1174,6 +1195,7 @@ function baseCreateRenderer(
         )
       }
     } else {
+      // cuixin: 更新组件
       updateComponent(n1, n2, optimized)
     }
   }
@@ -1191,6 +1213,7 @@ function baseCreateRenderer(
     // mounting
     const compatMountInstance =
       __COMPAT__ && initialVNode.isCompatRoot && initialVNode.component
+    // cuixin: 创建组件实例
     const instance: ComponentInternalInstance =
       compatMountInstance ||
       (initialVNode.component = createComponentInstance(
@@ -1209,15 +1232,20 @@ function baseCreateRenderer(
     }
 
     // inject renderer internals for keepAlive
+    // cuixin: keepAlive 的组件缓存子树，需要访问渲染器内部方法， 所以注入
     if (isKeepAlive(initialVNode)) {
       ;(instance.ctx as KeepAliveContext).renderer = internals
     }
 
     // resolve props and slots for setup context
+    // cuixin: __COMPAT__是否兼容模式，compatMountInstance组件实例已经提前创建
     if (!(__COMPAT__ && compatMountInstance)) {
       if (__DEV__) {
         startMeasure(instance, `init`)
       }
+      //cuixin: 只要不是「Vue2 兼容模式 + 实例已经提前创建」的情况，就执行 setupComponent；
+      // 1.用于初始化组件实例的状态和上下文；
+      // 2.解析组件的 props 和 slots，调用组件的 setup 函数
       setupComponent(instance, false, optimized)
       if (__DEV__) {
         endMeasure(instance, `init`)
@@ -1241,6 +1269,7 @@ function baseCreateRenderer(
         initialVNode.placeholder = placeholder.el
       }
     } else {
+      // cuixin: 创建渲染副作用，并将组件挂载到容器中
       setupRenderEffect(
         instance,
         initialVNode,
@@ -1375,6 +1404,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `render`)
           }
+          // cuxin: 渲染子的 VNode
           const subTree = (instance.subTree = renderComponentRoot(instance))
           if (__DEV__) {
             endMeasure(instance, `render`)
@@ -1382,6 +1412,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `patch`)
           }
+          // cuixin: 挂载子节点
           patch(
             null,
             subTree,
@@ -1574,6 +1605,7 @@ function baseCreateRenderer(
     }
 
     // create reactive effect for rendering
+    // cuixin: 创建组件的副作用渲染函数
     instance.scope.on()
     const effect = (instance.effect = new ReactiveEffect(componentUpdateFn))
     instance.scope.off()
@@ -2372,12 +2404,14 @@ function baseCreateRenderer(
   }
 
   let isFlushing = false
+  // cuixin: render方法，渲染vnode到container容器中
   const render: RootRenderFunction = (vnode, container, namespace) => {
     if (vnode == null) {
       if (container._vnode) {
         unmount(container._vnode, null, null, true)
       }
     } else {
+      // cuixin:新建也是一种特殊的更新，初始化过程可以看做一个全量的补丁
       patch(
         container._vnode || null,
         vnode,
@@ -2418,6 +2452,7 @@ function baseCreateRenderer(
     )
   }
 
+  // cuixin: 返回一个renderer对象，包含render、hydrate和createApp方法, const app = ensureRenderer().createApp(...args)这个中createApp方法会用到
   return {
     render,
     hydrate,

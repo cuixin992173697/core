@@ -63,6 +63,7 @@ declare module '@vue/runtime-core' {
   }
 }
 
+// cuixin: 除了nodeOPs 之外，还需要patchProp 方法，组合成完整的渲染器选项对象
 const rendererOptions = /*@__PURE__*/ extend({ patchProp }, nodeOps)
 
 // lazy create the renderer - this makes core renderer logic tree-shakable
@@ -71,6 +72,7 @@ let renderer: Renderer<Element | ShadowRoot> | HydrationRenderer
 
 let enabledHydration = false
 
+// cuixin: 这里返回的 renderer 对象，可以认为是一个跨平台的渲染器对象，针对不同的平台，会创建出不同的 renderer 对象，上述是创建浏览器环境的 renderer 对象，对于服务端渲染的场景，则会创建 server render 的 renderer:
 function ensureRenderer() {
   return (
     renderer ||
@@ -95,7 +97,9 @@ export const hydrate = ((...args) => {
   ensureHydrationRenderer().hydrate(...args)
 }) as RootHydrateFunction
 
+// cuixin: 创建app应用的核心函数
 export const createApp = ((...args) => {
+  // cuixin  确保渲染器被创建,链式函数执行完之后,返回一个app应用实例，里面有很多方法，比如mount方法
   const app = ensureRenderer().createApp(...args)
 
   if (__DEV__) {
