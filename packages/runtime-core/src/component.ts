@@ -807,6 +807,7 @@ export function setupComponent(
   isSSR && setInSSRSetupState(isSSR)
 
   const { props, children } = instance.vnode
+  // cuixin: 判断有状态组件
   const isStateful = isStatefulComponent(instance)
   // cuixin: 初始化 props 和 slots
   initProps(instance, props, isStateful, isSSR)
@@ -825,6 +826,7 @@ function setupStatefulComponent(
   instance: ComponentInternalInstance,
   isSSR: boolean,
 ) {
+  // cuixin: 定义component变量
   const Component = instance.type as ComponentOptions
 
   if (__DEV__) {
@@ -852,19 +854,24 @@ function setupStatefulComponent(
     }
   }
   // 0. create render proxy property access cache
+  //  创建渲染代理的属性访问缓存
   instance.accessCache = Object.create(null)
   // 1. create public instance / render proxy
+  // cuixin: 创建 proxy 对象，代理 instance.ctx
   instance.proxy = new Proxy(instance.ctx, PublicInstanceProxyHandlers)
   if (__DEV__) {
     exposePropsOnRenderContext(instance)
   }
   // 2. call setup()
+  // cuixin: 执行 setup 函数
   const { setup } = Component
   if (setup) {
     pauseTracking()
+    // cuixin: 如果setup函数带参数，则会创建一个setupContext对象
     const setupContext = (instance.setupContext =
       setup.length > 1 ? createSetupContext(instance) : null)
     const reset = setCurrentInstance(instance)
+    // 执行 setup 函数，获取结果; 组件中的setup函数会在这里被调用,通过 callWithErrorHandling 函数来间接执行 setup 函数
     const setupResult = callWithErrorHandling(
       setup,
       instance,
@@ -889,6 +896,7 @@ function setupStatefulComponent(
         // return the promise so server-renderer can wait on it
         return setupResult
           .then((resolvedResult: unknown) => {
+            // cuixin: 处理 setupResult 的结果
             handleSetupResult(instance, resolvedResult, isSSR)
           })
           .catch(e => {
@@ -914,9 +922,11 @@ function setupStatefulComponent(
         )
       }
     } else {
+      // cuixin: 处理 setupResult 的结果
       handleSetupResult(instance, setupResult, isSSR)
     }
   } else {
+    // 完成组件实例设置
     finishComponentSetup(instance, isSSR)
   }
 }
@@ -926,6 +936,10 @@ export function handleSetupResult(
   setupResult: unknown,
   isSSR: boolean,
 ): void {
+  // cuixin: setup 返回值不一样的话，会有不同的处理，
+  // 1.如果 setupResult 是个函数，那么会把该函数绑定到 render 上
+  // 2.当 setupResult 是一个对象的时候，我们为 setupResult 对象通过 proxyRefs 作了一层代理，方便用户直接访问 ref 类型的值。比如，在模板中访问 setupResult 中的数据，就可以省略 .value 的取值，而由代理来默认取 .value 的值。
+  // 3.如果 setupResult 既不是函数也不是对象，则会在开发环境下给出警告
   if (isFunction(setupResult)) {
     // setup returned an inline render function
     if (__SSR__ && (instance.type as ComponentOptions).__ssrInlineRender) {
@@ -933,6 +947,7 @@ export function handleSetupResult(
       // set it as ssrRender instead.
       instance.ssrRender = setupResult
     } else {
+      // cuixin: setup 返回渲染函数
       instance.render = setupResult as InternalRenderFunction
     }
   } else if (isObject(setupResult)) {
@@ -947,6 +962,7 @@ export function handleSetupResult(
     if (__DEV__ || __FEATURE_PROD_DEVTOOLS__) {
       instance.devtoolsRawSetupState = setupResult
     }
+    // cuixin:  proxyRefs 的作用就是把 setupResult 对象做一层代理
     instance.setupState = proxyRefs(setupResult)
     if (__DEV__) {
       exposeSetupStateOnRenderContext(instance)
@@ -958,6 +974,7 @@ export function handleSetupResult(
       }`,
     )
   }
+  // cuixin: 完成组件实例设置
   finishComponentSetup(instance, isSSR)
 }
 
@@ -1003,6 +1020,7 @@ export function finishComponentSetup(
   // template / render function normalization
   // could be already set when returned from setup()
   if (!instance.render) {
+    // cuixin：如果没有render函数，会把 template 编译成 render 函数
     // only do on-the-fly compile if not in SSR - SSR on-the-fly compilation
     // is done by server-renderer
     if (!isSSR && compile && !Component.render) {
@@ -1016,9 +1034,11 @@ export function finishComponentSetup(
         if (__DEV__) {
           startMeasure(instance, `compile`)
         }
+        // cuixin: 这里就是 runtime 模块和 compile 模块结合点
         const { isCustomElement, compilerOptions } = instance.appContext.config
         const { delimiters, compilerOptions: componentCompilerOptions } =
           Component
+        // cuixin: Vue 会将全局编译选项和组件级别的编译选项合并，生成最终的编译选项 finalCompilerOptions。
         const finalCompilerOptions: CompilerOptions = extend(
           extend(
             {
@@ -1037,6 +1057,7 @@ export function finishComponentSetup(
             extend(finalCompilerOptions.compatConfig, Component.compatConfig)
           }
         }
+        // cuixin: 调用 compile 方法把 template 编译成 render 函数 ⭐️⭐️⭐️⭐️⭐️
         Component.render = compile(template, finalCompilerOptions)
         if (__DEV__) {
           endMeasure(instance, `compile`)
@@ -1055,6 +1076,7 @@ export function finishComponentSetup(
   }
 
   // support for 2.x options
+  // cuixin: 兼容选项式api处理
   if (__FEATURE_OPTIONS_API__ && !(__COMPAT__ && skipOptions)) {
     const reset = setCurrentInstance(instance)
     pauseTracking()
@@ -1172,6 +1194,7 @@ export function createSetupContext(
       expose,
     })
   } else {
+    // cuixin: 直接返回 attrs、slots、emit、expose
     return {
       attrs: new Proxy(instance.attrs, attrsProxyHandlers),
       slots: instance.slots,

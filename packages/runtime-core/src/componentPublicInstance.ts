@@ -431,6 +431,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     // access on a plain object, so we use an accessCache object (with null
     // prototype) to memoize what access type a key corresponds to.
     if (key[0] !== '$') {
+      // cuixin: 访问缓存中存在该 key，则直接根据缓存类型返回对应的值；如果我们知道 key 存在于哪个对象上，那么就可以直接通过对象取值的操作获取属性上的值了。如果我们不知道用户访问的 key 存在于哪个属性上，那只能通过 hasOwn 的方法先判断存在于哪个属性上，再通过对象取值的操作获取属性值，这无疑是多操作了一步，而且这个判断是比较耗费性能的。如果遇到大量渲染取值的操作，那么这块就是个性能瓶颈，所以这里用了 accessCache 来标记缓存 key 存在于哪个属性上。这其实也相当于用一部分空间换时间的优化。
       const n = accessCache![key]
       if (n !== undefined) {
         switch (n) {
@@ -445,6 +446,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
           // default: just fallthrough
         }
       } else if (hasSetupBinding(setupState, key)) {
+        // cuixin: 访问缓存中不存在该 key，且 setupState 中存在该 key，则将该 key 标记为 SETUP 类型
         accessCache![key] = AccessTypes.SETUP
         return setupState[key]
       } else if (
@@ -452,15 +454,19 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
         data !== EMPTY_OBJ &&
         hasOwn(data, key)
       ) {
+        // cuixin: 访问缓存中不存在该 key，且 data 中存在该 key，则将该 key 标记为 DATA 类型
         accessCache![key] = AccessTypes.DATA
         return data[key]
       } else if (hasOwn(props, key)) {
+        // cuixin: 访问缓存中不存在该 key，且 props 中存在该 key，则将该 key 标记为 PROPS 类型
         accessCache![key] = AccessTypes.PROPS
         return props![key]
       } else if (ctx !== EMPTY_OBJ && hasOwn(ctx, key)) {
+        // cuixin: 访问缓存中不存在该 key，且 ctx 中存在该 key，则将该 key 标记为 CONTEXT 类型
         accessCache![key] = AccessTypes.CONTEXT
         return ctx[key]
       } else if (!__FEATURE_OPTIONS_API__ || shouldCacheAccess) {
+        // cuixin: 访问缓存中不存在该 key，且 setupState、data、props、ctx 中均不存在该 key，则将该 key 标记为 OTHER 类型
         accessCache![key] = AccessTypes.OTHER
       }
     }
@@ -469,6 +475,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     let cssModule, globalProperties
     // public $xxx properties
     if (publicGetter) {
+      // cuixin: 访问 publicPropertiesMap 中定义的公共属性, 以 $ 保留字开头的相关函数和方法
       if (key === '$attrs') {
         track(instance.attrs, TrackOpTypes.GET, '')
         __DEV__ && markAttrsAccessed()
@@ -479,6 +486,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       return publicGetter(instance)
     } else if (
       // css module (injected by vue-loader)
+      // cuixin: 访问 css 模块
       (cssModule = type.__cssModules) &&
       (cssModule = cssModule[key])
     ) {
@@ -489,6 +497,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       return ctx[key]
     } else if (
       // global properties
+      // cuixin: 访问全局属性
       ((globalProperties = appContext.config.globalProperties),
       hasOwn(globalProperties, key))
     ) {
@@ -534,6 +543,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
   ): boolean {
     const { data, setupState, ctx } = instance
     if (hasSetupBinding(setupState, key)) {
+      // cuixin: 优先修改 setupState 中的值
       setupState[key] = value
       return true
     } else if (
@@ -541,6 +551,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       setupState.__isScriptSetup &&
       hasOwn(setupState, key)
     ) {
+      // cuixin: 在开发环境下，禁止修改 <script setup> 绑定的值
       warn(`Cannot mutate <script setup> binding "${key}" from Options API.`)
       return false
     } else if (
@@ -548,9 +559,11 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
       data !== EMPTY_OBJ &&
       hasOwn(data, key)
     ) {
+      // cuixin: 其次修改 data 中的值
       data[key] = value
       return true
     } else if (hasOwn(instance.props, key)) {
+      // cuixin: 禁止修改 props 中的值
       __DEV__ && warn(`Attempting to mutate prop "${key}". Props are readonly.`)
       return false
     }
@@ -562,6 +575,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
         )
       return false
     } else {
+      // cuixin: 不能给组件实例上的内置属性赋值
       if (__DEV__ && key in instance.appContext.config.globalProperties) {
         Object.defineProperty(ctx, key, {
           enumerable: true,
@@ -569,6 +583,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
           value,
         })
       } else {
+        // cuixin: 用户自定义数据赋值
         ctx[key] = value
       }
     }
@@ -582,6 +597,7 @@ export const PublicInstanceProxyHandlers: ProxyHandler<any> = {
     key: string,
   ) {
     let cssModules
+    // cuixin: 函数则是依次判断 key 是否存在于 accessCache > data > setupState > prop > ctx > publicPropertiesMap > globalProperties，然后返回结果。
     return !!(
       accessCache![key] ||
       (__FEATURE_OPTIONS_API__ &&
