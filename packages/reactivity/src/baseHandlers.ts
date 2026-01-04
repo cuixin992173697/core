@@ -57,6 +57,7 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
 
     const isReadonly = this._isReadonly,
       isShallow = this._isShallow
+    // cuixin：对 ReactiveFlags 的处理部分
     if (key === ReactiveFlags.IS_REACTIVE) {
       return !isReadonly
     } else if (key === ReactiveFlags.IS_READONLY) {
@@ -65,6 +66,7 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
       return isShallow
     } else if (key === ReactiveFlags.RAW) {
       if (
+        // cuixin: 从map中获取target对象
         receiver ===
           (isReadonly
             ? isShallow
@@ -88,9 +90,11 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
 
     if (!isReadonly) {
       let fn: Function | undefined
+      // cuixin: 数组的特殊处理
       if (targetIsArray && (fn = arrayInstrumentations[key])) {
         return fn
       }
+      // cuixin: 对 hasOwnProperty 的特殊处理
       if (key === 'hasOwnProperty') {
         return hasOwnProperty
       }
@@ -105,14 +109,17 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
       isRef(target) ? target : receiver,
     )
 
+    //  cuixin: Symbol Key 不做依赖收集
     if (isSymbol(key) ? builtInSymbols.has(key) : isNonTrackableKeys(key)) {
       return res
     }
 
+    // cuixin: 依赖收集
     if (!isReadonly) {
       track(target, TrackOpTypes.GET, key)
     }
 
+    // cuixin: 如果是浅层响应，那么直接返回，不需要递归了
     if (isShallow) {
       return res
     }
@@ -134,6 +141,7 @@ class BaseReactiveHandler implements ProxyHandler<Target> {
   }
 }
 
+// cuixin：baseHandler, get,set,deleteProperty,has,ownKeys等方法,get 在BaseReactiveHandle中有
 class MutableReactiveHandler extends BaseReactiveHandler {
   constructor(isShallow = false) {
     super(false, isShallow)

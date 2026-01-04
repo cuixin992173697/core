@@ -105,6 +105,9 @@ export class Dep {
     }
   }
 
+  // cuixin: 避免重复收集
+  // cuixin: 支持 effect 重新执行时的依赖复用与清理
+  // cuixin: 保证依赖顺序与访问顺序一致
   track(debugInfo?: DebuggerEventExtraInfo): Link | undefined {
     if (!activeSub || !shouldTrack || activeSub === this.computed) {
       return
@@ -278,6 +281,7 @@ export function track(target: object, type: TrackOpTypes, key: unknown): void {
         key,
       })
     } else {
+      // cuixin: 真正的依赖收集
       dep.track()
     }
   }

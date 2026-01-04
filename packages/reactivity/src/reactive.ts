@@ -66,6 +66,7 @@ function targetTypeMap(rawType: string) {
  * toRawType本质使用的是Object.toString.call(value)来获取值的类型字符串。
  */
 function getTargetType(value: Target) {
+  // cuixin: toRawType判断object的原始类型，Object.prototype.toString.call(value).slice(8, -1)
   return value[ReactiveFlags.SKIP] || !Object.isExtensible(value)
     ? TargetType.INVALID
     : targetTypeMap(toRawType(value))
